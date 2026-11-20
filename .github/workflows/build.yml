@@ -1,0 +1,31 @@
+name: Build IPA
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build unsigned IPA
+        run: |
+          mkdir www
+          cp index.html manifest.json sw.js *.png www/
+          npm init -y
+          npm i @capacitor/core@7 @capacitor/cli@7 @capacitor/ios@7
+          npx cap init "بنك المعلومات" com.personalbank.app --web-dir www
+          npx cap add ios
+          sips -z 1024 1024 icon-512.png --out icon-1024.png
+          cp icon-1024.png ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png
+          npx cap sync ios
+          cd ios/App
+          if [ -d App.xcworkspace ]; then TARGET="-workspace App.xcworkspace"; else TARGET="-project App.xcodeproj"; fi
+          xcodebuild $TARGET -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qr PersonalBank.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PersonalBank-ipa
+          path: ios/App/PersonalBank.ipa
